@@ -17,9 +17,6 @@
 
     <!-- Supabase -->
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen">
     <div id="root"></div>
@@ -384,8 +381,8 @@
             const [activeTab, setActiveTab] = useState('builder'); // builder, manage, import, settings
             const [supabase, setSupabase] = useState(null);
             const [config, setConfig] = useState({
-                url: localStorage.getItem('supabase_url') || '',
-                key: localStorage.getItem('supabase_key') || ''
+                url: localStorage.getItem('supabase_url') || 'https://wkiaejynwautobjumwpq.supabase.co',
+                key: localStorage.getItem('supabase_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndraWFlanlud2F1dG9ianVtd3BxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0NDYzMTYsImV4cCI6MjA4NDAyMjMxNn0.5lcx7xK4M-Zm5G2HJrCw7sZ-4-lb3y6vuZZFnT7VKFs'
             });
 
             useEffect(() => {
