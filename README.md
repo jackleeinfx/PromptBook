@@ -1,16 +1,39 @@
-# React + Vite
+# AI Prompt Manager
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A fast and efficient tool for managing, building, and exporting AI image generation prompts.
+Powered by React, Tailwind CSS, and Supabase.
 
-Currently, two official plugins are available:
+## Features
+- **Category Management**: Organize prompts by style, camera, lighting, etc.
+- **Bulk Import**: Paste multiple prompts at once to populate your library.
+- **Prompt Builder**: Click-to-select interface to assemble complex prompts.
+- **Cloud Storage**: Prompts are saved to your Supabase database.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Setup & Running
 
-## React Compiler
+1.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2.  **Configuration**
+    - Rename `.env.example` to `.env`.
+    - Add your Supabase URL and Anon Key.
 
-## Expanding the ESLint configuration
+3.  **Run Locally**
+    ```bash
+    npm run dev
+    ```
+    - Open the URL shown in the terminal (usually `http://localhost:5173`).
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+    **Note:** You cannot open `index.html` directly in your browser due to security restrictions. You must run the local server.
+
+4.  **Build for Production**
+    ```bash
+    npm run build
+    npm run preview
+    ```
+
+## Database Setup
+
+Run the SQL commands in `schema.sql` in your Supabase SQL Editor to set up the necessary tables.
