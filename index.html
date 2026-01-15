@@ -263,13 +263,28 @@
             }, [activeCategoryId, supabase]);
 
             async function fetchPrompts(catId) {
-                // Fetch prompts, ordering by pinned status first (desc), then ID
-                const { data, error } = await supabase
+                // Try fetching with pinned sorting
+                let query = supabase
                     .from('prompts')
                     .select('*')
                     .eq('category_id', catId)
                     .order('is_pinned', { ascending: false })
                     .order('id', { ascending: true });
+
+                let { data, error } = await query;
+
+                if (error) {
+                    // Fallback: If 'is_pinned' column doesn't exist, fetch without it
+                    console.warn('Error fetching prompts with pin sort, retrying without:', error);
+                    const fallback = await supabase
+                        .from('prompts')
+                        .select('*')
+                        .eq('category_id', catId)
+                        .order('id', { ascending: true });
+
+                    data = fallback.data;
+                    error = fallback.error;
+                }
 
                 if (error) {
                     console.error('Error fetching prompts:', error);
@@ -321,8 +336,8 @@
 
                 if (error) {
                     console.error("Error pinning prompt:", error);
-                    // Revert or re-fetch would be safer, but simple alert for now
-                    // fetchPrompts(activeCategoryId);
+                    alert("Failed to pin prompt. Your database might need an update to support pinning.");
+                    fetchPrompts(activeCategoryId); // Revert UI
                 }
             }
 
@@ -701,7 +716,7 @@
                         )}
 
                         {activeTab === 'import' && (
-                            <BulkImporter supabase={supabase} categories={categories} onImportComplete={() => {}} />
+                            <BulkImporter supabase={supabase} categories={categories} onImportComplete={fetchCategories} />
                         )}
 
                         {activeTab === 'manage' && (
