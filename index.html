@@ -547,6 +547,23 @@
                     console.error('Error fetching categories:', error);
                 } else if (data) {
                     setCategories(data);
+
+                    // Auto-create default categories if they don't exist
+                    const defaultCats = ["待定", "刪除"];
+                    let createdAny = false;
+
+                    for (const name of defaultCats) {
+                        if (!data.find(c => c.name === name)) {
+                            await supabase.from('categories').insert([{ name }]);
+                            createdAny = true;
+                        }
+                    }
+
+                    if (createdAny) {
+                        // Refresh if we created something
+                        const { data: newData } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+                        if(newData) setCategories(newData);
+                    }
                 }
             }
 
