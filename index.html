@@ -1,13 +1,542 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>app</title>
-  </head>
-  <body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Prompt Manager</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen">
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        const { createClient } = supabase;
+
+        // --- Icons Component Wrappers ---
+        // Lucide renders icons by replacing elements with 'i' tags, so we need a React wrapper or just use the SVG strings.
+        // For simplicity in a CDN setup, we will use a helper to render the icons after mount, or simple SVG replacements.
+        // Actually, Lucide provides a React package but it's harder to use via UMD.
+        // We will create simple SVG components for the icons we need to avoid complex dependency chains.
+
+        const Icons = {
+            Layers: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+            ),
+            Database: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s 9-1.34 9-3V5"></path></svg>
+            ),
+            PenTool: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m12 19 7-7 3 3-7 7-3-3z"></path><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path><path d="m2 2 7.586 7.586"></path><circle cx="11" cy="11" r="2"></circle></svg>
+            ),
+            Plus: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            ),
+            Trash2: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            ),
+            Save: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            ),
+            Copy: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            ),
+            X: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            ),
+            Settings: ({ size = 24, className = "" }) => (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            )
+        };
+
+        // --- Category Manager ---
+        function CategoryManager({ supabase, onCategoriesChange }) {
+            const [categories, setCategories] = useState([]);
+            const [newCategory, setNewCategory] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            useEffect(() => {
+                if(supabase) fetchCategories();
+            }, [supabase]);
+
+            async function fetchCategories() {
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) {
+                    console.error('Error fetching categories:', error);
+                } else {
+                    setCategories(data);
+                    if (onCategoriesChange) onCategoriesChange(data);
+                }
+            }
+
+            async function addCategory() {
+                if (!newCategory.trim()) return;
+                setLoading(true);
+                const { error } = await supabase
+                    .from('categories')
+                    .insert([{ name: newCategory.trim() }]);
+
+                if (error) {
+                    alert('Error adding category: ' + error.message);
+                } else {
+                    setNewCategory('');
+                    fetchCategories();
+                }
+                setLoading(false);
+            }
+
+            async function deleteCategory(id) {
+                if (!window.confirm('Are you sure you want to delete this category and all its prompts?')) return;
+
+                const { error } = await supabase
+                    .from('categories')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) {
+                    alert('Error deleting category: ' + error.message);
+                } else {
+                    fetchCategories();
+                }
+            }
+
+            return (
+                <div className="bg-white p-4 rounded-lg shadow mb-6 border border-gray-200">
+                    <h2 className="text-xl font-bold mb-4 text-gray-800">Category Manager</h2>
+
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                            placeholder="New Category Name (e.g. Style, Camera)"
+                            className="flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onKeyDown={(e) => e.key === 'Enter' && addCategory()}
+                        />
+                        <button
+                            onClick={addCategory}
+                            disabled={loading}
+                            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                            <Icons.Plus size={16} /> Add
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        {categories.map((cat) => (
+                            <div key={cat.id} className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full border border-gray-200">
+                                <span className="font-medium text-gray-700">{cat.name}</span>
+                                <button
+                                    onClick={() => deleteCategory(cat.id)}
+                                    className="text-gray-400 hover:text-red-500 transition-colors"
+                                    title="Delete Category"
+                                >
+                                    <Icons.Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
+                        {categories.length === 0 && <p className="text-gray-500 text-sm italic">No categories created yet.</p>}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Bulk Importer ---
+        function BulkImporter({ supabase, categories, onImportComplete }) {
+            const [selectedCategoryId, setSelectedCategoryId] = useState('');
+            const [text, setText] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            async function handleSave() {
+                if (!selectedCategoryId) {
+                    alert('Please select a category first.');
+                    return;
+                }
+                if (!text.trim()) {
+                    alert('Please enter some prompts.');
+                    return;
+                }
+
+                setLoading(true);
+                const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+                if (lines.length === 0) {
+                    setLoading(false);
+                    return;
+                }
+
+                const rows = lines.map(line => ({
+                    content: line,
+                    category_id: selectedCategoryId
+                }));
+
+                const { error } = await supabase
+                    .from('prompts')
+                    .insert(rows);
+
+                if (error) {
+                    alert('Error importing prompts: ' + error.message);
+                } else {
+                    alert(`Successfully imported ${lines.length} prompts!`);
+                    setText('');
+                    if (onImportComplete) onImportComplete();
+                }
+                setLoading(false);
+            }
+
+            return (
+                <div className="bg-white p-4 rounded-lg shadow mb-6 border border-gray-200">
+                    <h2 className="text-xl font-bold mb-4 text-gray-800">Bulk Import Prompts</h2>
+
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Category</label>
+                        <select
+                            value={selectedCategoryId}
+                            onChange={(e) => setSelectedCategoryId(e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">-- Choose a Category --</option>
+                            {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Prompts (One per line)</label>
+                        <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="Paste multiple prompts here..."
+                            rows={5}
+                            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleSave}
+                        disabled={loading || !selectedCategoryId}
+                        className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors w-full justify-center"
+                    >
+                        <Icons.Save size={16} /> Save Prompts
+                    </button>
+                </div>
+            );
+        }
+
+        // --- Prompt Builder ---
+        function PromptBuilder({ supabase, categories }) {
+            const [activeCategoryId, setActiveCategoryId] = useState(null);
+            const [prompts, setPrompts] = useState([]);
+            const [selectedPrompts, setSelectedPrompts] = useState([]);
+
+            useEffect(() => {
+                if (activeCategoryId && supabase) {
+                    fetchPrompts(activeCategoryId);
+                } else {
+                    setPrompts([]);
+                }
+            }, [activeCategoryId, supabase]);
+
+            async function fetchPrompts(catId) {
+                const { data, error } = await supabase
+                    .from('prompts')
+                    .select('*')
+                    .eq('category_id', catId)
+                    .order('id', { ascending: true });
+
+                if (error) {
+                    console.error('Error fetching prompts:', error);
+                } else {
+                    setPrompts(data);
+                }
+            }
+
+            function addPrompt(text) {
+                setSelectedPrompts([...selectedPrompts, text]);
+            }
+
+            function removeSelected(index) {
+                const newPrompts = [...selectedPrompts];
+                newPrompts.splice(index, 1);
+                setSelectedPrompts(newPrompts);
+            }
+
+            function clearAll() {
+                setSelectedPrompts([]);
+            }
+
+            function copyToClipboard() {
+                const text = selectedPrompts.join(', ');
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('Prompts copied to clipboard!');
+                });
+            }
+
+            return (
+                <div className="flex flex-col md:flex-row gap-4 h-[600px]">
+                    {/* Categories Sidebar */}
+                    <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200">
+                        <h3 className="font-bold mb-2 text-gray-700">Categories</h3>
+                        <div className="space-y-1">
+                            {categories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setActiveCategoryId(cat.id)}
+                                    className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                                        activeCategoryId === cat.id
+                                            ? 'bg-blue-100 text-blue-700 font-medium'
+                                            : 'hover:bg-gray-100 text-gray-600'
+                                    }`}
+                                >
+                                    {cat.name}
+                                </button>
+                            ))}
+                            {categories.length === 0 && <p className="text-sm text-gray-400">No categories.</p>}
+                        </div>
+                    </div>
+
+                    {/* Prompts Selection Area */}
+                    <div className="w-full md:w-2/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200">
+                        <h3 className="font-bold mb-2 text-gray-700">
+                            {activeCategoryId ? categories.find(c => c.id === activeCategoryId)?.name : 'Select a Category'}
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                            {prompts.map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => addPrompt(p.content)}
+                                    className="bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 px-3 py-1 rounded text-sm transition-colors text-left"
+                                >
+                                    {p.content}
+                                </button>
+                            ))}
+                            {activeCategoryId && prompts.length === 0 && (
+                                <p className="text-gray-400 italic">No prompts in this category.</p>
+                            )}
+                            {!activeCategoryId && (
+                                <p className="text-gray-400 italic">Select a category to view prompts.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Output Area */}
+                    <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow flex flex-col border border-gray-200">
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-bold text-gray-700">Output</h3>
+                            <button onClick={clearAll} className="text-xs text-red-500 hover:underline">Clear All</button>
+                        </div>
+
+                        <div className="flex-1 bg-gray-50 border border-gray-200 rounded p-2 overflow-y-auto mb-2">
+                            <div className="flex flex-wrap gap-1">
+                                {selectedPrompts.map((p, i) => (
+                                    <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                        {p}
+                                        <button onClick={() => removeSelected(i)} className="hover:text-red-500"><Icons.X size={10} /></button>
+                                    </span>
+                                ))}
+                                {selectedPrompts.length === 0 && <span className="text-gray-400 italic text-sm">Selected prompts will appear here...</span>}
+                            </div>
+                        </div>
+
+                        <div className="mb-2">
+                            <textarea
+                                className="w-full h-24 p-2 text-sm border border-gray-300 rounded font-mono"
+                                readOnly
+                                value={selectedPrompts.join(', ')}
+                            />
+                        </div>
+
+                        <button
+                            onClick={copyToClipboard}
+                            disabled={selectedPrompts.length === 0}
+                            className="w-full bg-blue-600 text-white py-2 rounded flex items-center justify-center gap-2 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                            <Icons.Copy size={16} /> Copy Prompts
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App ---
+        function App() {
+            const [categories, setCategories] = useState([]);
+            const [activeTab, setActiveTab] = useState('builder'); // builder, manage, import, settings
+            const [supabase, setSupabase] = useState(null);
+            const [config, setConfig] = useState({
+                url: localStorage.getItem('supabase_url') || '',
+                key: localStorage.getItem('supabase_key') || ''
+            });
+
+            useEffect(() => {
+                if (config.url && config.key) {
+                    try {
+                        const client = createClient(config.url, config.key);
+                        setSupabase(client);
+                    } catch (e) {
+                        console.error("Invalid Supabase config", e);
+                    }
+                }
+            }, []);
+
+            useEffect(() => {
+                if (supabase) {
+                    fetchCategories();
+                }
+            }, [supabase]);
+
+            async function fetchCategories() {
+                if (!supabase) return;
+                const { data, error } = await supabase
+                    .from('categories')
+                    .select('*')
+                    .order('created_at', { ascending: true });
+
+                if (error) {
+                    console.error('Error fetching categories:', error);
+                } else if (data) {
+                    setCategories(data);
+                }
+            }
+
+            const saveConfig = () => {
+                localStorage.setItem('supabase_url', config.url);
+                localStorage.setItem('supabase_key', config.key);
+                try {
+                    const client = createClient(config.url, config.key);
+                    setSupabase(client);
+                    alert("Configuration saved!");
+                    window.location.reload(); // Reload to ensure clean state
+                } catch (e) {
+                    alert("Invalid Configuration");
+                }
+            };
+
+            if (!supabase) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                        <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full border border-gray-200">
+                            <h1 className="text-2xl font-bold mb-6 text-center text-blue-600 flex items-center justify-center gap-2">
+                                <Icons.Layers /> Setup Supabase
+                            </h1>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Supabase Project URL</label>
+                                    <input
+                                        type="text"
+                                        value={config.url}
+                                        onChange={(e) => setConfig({...config, url: e.target.value})}
+                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                        placeholder="https://xyz.supabase.co"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Supabase Anon Key</label>
+                                    <input
+                                        type="text"
+                                        value={config.key}
+                                        onChange={(e) => setConfig({...config, key: e.target.value})}
+                                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                        placeholder="eyJhbGciOiJIUzI1NiIsIn..."
+                                    />
+                                </div>
+                                <button
+                                    onClick={saveConfig}
+                                    className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 transition-colors"
+                                >
+                                    Connect & Start
+                                </button>
+                                <p className="text-xs text-gray-500 text-center mt-4">
+                                    Your keys are stored locally in your browser.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50 text-gray-800 font-sans">
+                    <header className="bg-white shadow p-4 mb-6 sticky top-0 z-10">
+                        <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-4">
+                            <h1 className="text-2xl font-bold text-blue-600 flex items-center gap-2">
+                                <Icons.Layers /> AI Prompt Manager
+                            </h1>
+                            <nav className="flex gap-2">
+                                <button
+                                    onClick={() => setActiveTab('builder')}
+                                    className={`px-4 py-2 rounded flex items-center gap-2 transition-colors ${activeTab === 'builder' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                                >
+                                    <Icons.PenTool size={18} /> Builder
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('import')}
+                                    className={`px-4 py-2 rounded flex items-center gap-2 transition-colors ${activeTab === 'import' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                                >
+                                    <Icons.Database size={18} /> Bulk Import
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('manage')}
+                                    className={`px-4 py-2 rounded flex items-center gap-2 transition-colors ${activeTab === 'manage' ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                                >
+                                    <Icons.Layers size={18} /> Categories
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        if(confirm("Reset credentials?")) {
+                                            localStorage.removeItem('supabase_url');
+                                            localStorage.removeItem('supabase_key');
+                                            window.location.reload();
+                                        }
+                                    }}
+                                    className="px-4 py-2 rounded flex items-center gap-2 hover:bg-red-100 text-red-600 transition-colors ml-4"
+                                    title="Reset Config"
+                                >
+                                    <Icons.Settings size={18} />
+                                </button>
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="max-w-7xl mx-auto px-4 pb-10">
+                        {activeTab === 'builder' && (
+                            <PromptBuilder supabase={supabase} categories={categories} />
+                        )}
+
+                        {activeTab === 'import' && (
+                            <BulkImporter supabase={supabase} categories={categories} onImportComplete={() => {}} />
+                        )}
+
+                        {activeTab === 'manage' && (
+                            <CategoryManager supabase={supabase} onCategoriesChange={fetchCategories} />
+                        )}
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>

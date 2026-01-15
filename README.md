@@ -3,53 +3,31 @@
 A fast and efficient tool for managing, building, and exporting AI image generation prompts.
 Powered by React, Tailwind CSS, and Supabase.
 
+**This is a single-file application. No installation required.**
+
 ## Features
 - **Category Management**: Organize prompts by style, camera, lighting, etc.
 - **Bulk Import**: Paste multiple prompts at once to populate your library.
 - **Prompt Builder**: Click-to-select interface to assemble complex prompts.
 - **Cloud Storage**: Prompts are saved to your Supabase database.
 
-## Setup & Running
+## How to Use
 
-1.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
+1.  **Open the App**
+    - Simply double-click `index.html` to open it in your browser.
+    - Or host it on any static web server (GitHub Pages, etc.).
 
-2.  **Configuration**
-    - Rename `.env.example` to `.env`.
-    - Add your Supabase URL and Anon Key.
-
-3.  **Run Locally**
-    ```bash
-    npm run dev
-    ```
-    - Open the URL shown in the terminal (usually `http://localhost:5173`).
-
-    **Note:** You cannot open `index.html` directly in your browser due to security restrictions. You must run the local server.
-
-4.  **Build for Production**
-    ```bash
-    npm run build
-    npm run preview
-    ```
+2.  **Configure Connection**
+    - On the first load, you will be asked for your Supabase **Project URL** and **Anon Key**.
+    - These keys are stored safely in your browser's Local Storage.
 
 ## Database Setup
 
 Run the SQL commands in `schema.sql` in your Supabase SQL Editor to set up the necessary tables.
 
-## Deployment to GitHub Pages
+## Deployment
 
-This project is configured to automatically deploy to GitHub Pages using GitHub Actions.
-
-1.  **Push your code** to GitHub.
-2.  **Go to Settings > Secrets and variables > Actions** in your repository.
-3.  Add the following **Repository secrets**:
-    - `VITE_SUPABASE_URL`: Your Supabase Project URL.
-    - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
-4.  **Go to Settings > Pages**.
-    - Under "Build and deployment", select **Source** as "Deploy from a branch".
-    - Select **Branch** as `gh-pages` and folder as `/ (root)`.
-    - Click **Save**.
-
-The Action will run on every push, build the project, and update the `gh-pages` branch. Your site will be live at `https://<your-username>.github.io/<repo-name>/`.
+Since this is a single HTML file, you can deploy it anywhere:
+- **GitHub Pages:** Enable Pages for this repository.
+- **Netlify/Vercel:** Drag and drop the folder.
+- **Local:** Just open the file!
