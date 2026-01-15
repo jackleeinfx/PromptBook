@@ -163,17 +163,44 @@
             const [text, setText] = useState('');
             const [loading, setLoading] = useState(false);
 
-            async function handleSave() {
-                if (!selectedCategoryId) {
-                    alert('Please select a category first.');
-                    return;
+            useEffect(() => {
+                // Try to find "Pending" or "待定" category to set default
+                const pendingCat = categories.find(c => c.name === 'Pending' || c.name === '待定');
+                if (pendingCat) {
+                    setSelectedCategoryId(pendingCat.id);
                 }
+            }, [categories]);
+
+            async function handleSave() {
+                let targetCategoryId = selectedCategoryId;
+
                 if (!text.trim()) {
                     alert('Please enter some prompts.');
                     return;
                 }
 
                 setLoading(true);
+
+                // If no category selected, try to create or find "待定"
+                if (!targetCategoryId) {
+                    const pendingName = "待定";
+                    // Double check if it exists now
+                    const { data: existing } = await supabase.from('categories').select('*').eq('name', pendingName).single();
+
+                    if (existing) {
+                        targetCategoryId = existing.id;
+                    } else {
+                        // Create it
+                        const { data: newCat, error: createError } = await supabase.from('categories').insert([{ name: pendingName }]).select().single();
+                        if (createError) {
+                            alert('Error creating default category: ' + createError.message);
+                            setLoading(false);
+                            return;
+                        }
+                        targetCategoryId = newCat.id;
+                    }
+                    setSelectedCategoryId(targetCategoryId);
+                }
                 const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
                 if (lines.length === 0) {
@@ -183,7 +210,7 @@
 
                 const rows = lines.map(line => ({
                     content: line,
-                    category_id: selectedCategoryId
+                    category_id: targetCategoryId
                 }));
 
                 const { error } = await supabase
@@ -245,6 +272,7 @@
             const [activeCategoryId, setActiveCategoryId] = useState(null);
             const [prompts, setPrompts] = useState([]);
             const [selectedPrompts, setSelectedPrompts] = useState([]);
+            const [draggedPrompt, setDraggedPrompt] = useState(null);
 
             useEffect(() => {
                 if (activeCategoryId && supabase) {
@@ -289,23 +317,91 @@
                 });
             }
 
+            // Drag and Drop Logic
+            function handleDragStart(e, prompt) {
+                setDraggedPrompt(prompt);
+                e.dataTransfer.effectAllowed = 'move';
+                // Set data for compatibility
+                e.dataTransfer.setData('text/plain', JSON.stringify(prompt));
+            }
+
+            function handleDragOver(e) {
+                e.preventDefault(); // Necessary to allow dropping
+                e.dataTransfer.dropEffect = 'move';
+            }
+
+            async function handleDrop(e, targetCategoryId) {
+                e.preventDefault();
+                if (!draggedPrompt) return;
+
+                if (draggedPrompt.category_id === targetCategoryId) return; // Same category
+
+                if (!confirm(`Move "${draggedPrompt.content}" to ${categories.find(c => c.id === targetCategoryId)?.name}?`)) return;
+
+                // Update in Supabase
+                const { error } = await supabase
+                    .from('prompts')
+                    .update({ category_id: targetCategoryId })
+                    .eq('id', draggedPrompt.id);
+
+                if (error) {
+                    alert('Error moving prompt: ' + error.message);
+                } else {
+                    // Refresh current list if the moved prompt was in it
+                    setPrompts(prompts.filter(p => p.id !== draggedPrompt.id));
+                    setDraggedPrompt(null);
+                }
+            }
+
+            // Mobile "Move" Logic
+            const [mobileMoveTarget, setMobileMoveTarget] = useState(null); // prompt to be moved
+
+            function openMobileMove(e, prompt) {
+                e.stopPropagation(); // Prevent adding prompt to builder
+                e.preventDefault();  // Prevent default context menu
+                setMobileMoveTarget(prompt);
+            }
+
+            async function confirmMobileMove(targetCatId) {
+                if (!mobileMoveTarget) return;
+
+                // Optimistic Update
+                const promptId = mobileMoveTarget.id;
+                setPrompts(prompts.filter(p => p.id !== promptId));
+                setMobileMoveTarget(null);
+
+                const { error } = await supabase
+                    .from('prompts')
+                    .update({ category_id: targetCatId })
+                    .eq('id', promptId);
+
+                if (error) {
+                    alert('Error moving prompt: ' + error.message);
+                    fetchPrompts(activeCategoryId); // Revert on error
+                }
+            }
+
+
             return (
-                <div className="flex flex-col md:flex-row gap-4 h-[600px]">
+                <div className="flex flex-col md:flex-row gap-4 h-[calc(100vh-180px)] md:h-[calc(100vh-140px)]">
                     {/* Categories Sidebar */}
-                    <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200">
-                        <h3 className="font-bold mb-2 text-gray-700">Categories</h3>
+                    <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200 flex-shrink-0 h-48 md:h-auto">
+                        <h3 className="font-bold mb-2 text-gray-700 sticky top-0 bg-white">Categories</h3>
+                        <p className="hidden md:block text-xs text-gray-400 mb-2">Drag prompts here to move them.</p>
                         <div className="space-y-1">
                             {categories.map(cat => (
                                 <button
                                     key={cat.id}
                                     onClick={() => setActiveCategoryId(cat.id)}
-                                    className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, cat.id)}
+                                    className={`w-full text-left px-3 py-2 rounded transition-colors flex justify-between items-center ${
                                         activeCategoryId === cat.id
                                             ? 'bg-blue-100 text-blue-700 font-medium'
                                             : 'hover:bg-gray-100 text-gray-600'
-                                    }`}
+                                    } ${draggedPrompt && draggedPrompt.category_id !== cat.id ? 'border-2 border-dashed border-blue-300' : ''}`}
                                 >
-                                    {cat.name}
+                                    <span>{cat.name}</span>
                                 </button>
                             ))}
                             {categories.length === 0 && <p className="text-sm text-gray-400">No categories.</p>}
@@ -313,19 +409,24 @@
                     </div>
 
                     {/* Prompts Selection Area */}
-                    <div className="w-full md:w-2/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200">
-                        <h3 className="font-bold mb-2 text-gray-700">
-                            {activeCategoryId ? categories.find(c => c.id === activeCategoryId)?.name : 'Select a Category'}
+                    <div className="w-full md:w-2/4 bg-white p-4 rounded-lg shadow overflow-y-auto border border-gray-200 flex-grow">
+                        <h3 className="font-bold mb-2 text-gray-700 flex justify-between sticky top-0 bg-white z-10 pb-2 border-b border-gray-100">
+                            <span>{activeCategoryId ? categories.find(c => c.id === activeCategoryId)?.name : 'Select a Category'}</span>
                         </h3>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 pt-2">
                             {prompts.map(p => (
-                                <button
-                                    key={p.id}
-                                    onClick={() => addPrompt(p.content)}
-                                    className="bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 px-3 py-1 rounded text-sm transition-colors text-left"
-                                >
-                                    {p.content}
-                                </button>
+                                <div key={p.id} className="relative group">
+                                    <button
+                                        onClick={() => addPrompt(p.content)}
+                                        onContextMenu={(e) => openMobileMove(e, p)}
+                                        draggable="true"
+                                        onDragStart={(e) => handleDragStart(e, p)}
+                                        title="Right click (or long press) to move"
+                                        className="bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 px-3 py-2 rounded text-sm transition-colors text-left cursor-grab active:cursor-grabbing select-none"
+                                    >
+                                        {p.content}
+                                    </button>
+                                </div>
                             ))}
                             {activeCategoryId && prompts.length === 0 && (
                                 <p className="text-gray-400 italic">No prompts in this category.</p>
@@ -335,6 +436,28 @@
                             )}
                         </div>
                     </div>
+
+                    {/* Mobile Move Modal */}
+                    {mobileMoveTarget && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setMobileMoveTarget(null)}>
+                            <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-4 overflow-y-auto max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                                <h3 className="font-bold text-lg mb-4">Move Prompt</h3>
+                                <p className="text-gray-600 mb-4 text-sm break-words">"{mobileMoveTarget.content}"</p>
+                                <div className="space-y-2">
+                                    {categories.filter(c => c.id !== mobileMoveTarget.category_id).map(cat => (
+                                        <button
+                                            key={cat.id}
+                                            onClick={() => confirmMobileMove(cat.id)}
+                                            className="w-full text-left px-4 py-3 rounded bg-gray-50 hover:bg-blue-50 border border-gray-200 font-medium"
+                                        >
+                                            Move to {cat.name}
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setMobileMoveTarget(null)} className="mt-4 w-full py-2 text-gray-500 hover:bg-gray-100 rounded">Cancel</button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Output Area */}
                     <div className="w-full md:w-1/4 bg-white p-4 rounded-lg shadow flex flex-col border border-gray-200">
