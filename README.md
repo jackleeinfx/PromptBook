@@ -37,3 +37,19 @@ Powered by React, Tailwind CSS, and Supabase.
 ## Database Setup
 
 Run the SQL commands in `schema.sql` in your Supabase SQL Editor to set up the necessary tables.
+
+## Deployment to GitHub Pages
+
+This project is configured to automatically deploy to GitHub Pages using GitHub Actions.
+
+1.  **Push your code** to GitHub.
+2.  **Go to Settings > Secrets and variables > Actions** in your repository.
+3.  Add the following **Repository secrets**:
+    - `VITE_SUPABASE_URL`: Your Supabase Project URL.
+    - `VITE_SUPABASE_ANON_KEY`: Your Supabase Anon Key.
+4.  **Go to Settings > Pages**.
+    - Under "Build and deployment", select **Source** as "Deploy from a branch".
+    - Select **Branch** as `gh-pages` and folder as `/ (root)`.
+    - Click **Save**.
+
+The Action will run on every push, build the project, and update the `gh-pages` branch. Your site will be live at `https://<your-username>.github.io/<repo-name>/`.
