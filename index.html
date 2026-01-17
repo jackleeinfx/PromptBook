@@ -162,6 +162,14 @@
         function BulkImporter({ supabase, categories, onImportComplete }) {
             const [text, setText] = useState('');
             const [loading, setLoading] = useState(false);
+            const textareaRef = React.useRef(null);
+
+            useEffect(() => {
+                if (textareaRef.current) {
+                    textareaRef.current.style.height = 'auto';
+                    textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+                }
+            }, [text]);
 
             async function handleSave() {
                 if (!text.trim()) {
@@ -227,11 +235,11 @@
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-300 mb-1">Prompts (One per line)</label>
                         <textarea
+                            ref={textareaRef}
                             value={text}
                             onChange={(e) => setText(e.target.value)}
                             placeholder="Paste multiple prompts here..."
-                            rows={5}
-                            className="w-full p-2 border border-gray-600 bg-gray-700 text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm placeholder-gray-400"
+                            className="w-full p-2 border border-gray-600 bg-gray-700 text-gray-100 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm placeholder-gray-400 overflow-hidden min-h-[300px]"
                         />
                     </div>
 
